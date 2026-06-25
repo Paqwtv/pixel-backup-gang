@@ -35,7 +35,7 @@ so i spent some time figuring out a way to get files on external storage drives 
 ### the good
 * works with the stock kernel
 * backs up external files larger than 4gb (stock OS only supports FAT32 for external drives)
-* reduces wear on internal flash storage by up to 50% (see https://github.com/master-hax/pixel-backup-gang/issues/30)
+* reduces wear on internal flash storage by up to 50% (see https://github.com/Paqwtv/pixel-backup-gang/issues/30)
 * can prevent the device from overheating - the external drive gets hot instead
 * makes 32gb pixels viable for mass backup
 
@@ -47,7 +47,7 @@ so i spent some time figuring out a way to get files on external storage drives 
 * there's no GUI, you need to execute shell scripts
 
 ## prerequisites
-* a Google Pixel (sailfish) or Google Pixel XL (marlin) on Android 10, rooted with [Magisk](https://github.com/topjohnwu/Magisk). may work on other phones with other versions of android (see https://github.com/master-hax/pixel-backup-gang/pull/33).
+* a Google Pixel (sailfish) or Google Pixel XL (marlin) on Android 10, rooted with [Magisk](https://github.com/topjohnwu/Magisk). may work on other phones with other versions of android (see https://github.com/Paqwtv/pixel-backup-gang/pull/33).
 * a USB storage drive formatted with an ext4 or FAT32 filesystem.
 
 #### formatting a drive as ext4 (for macOS)
@@ -64,16 +64,18 @@ sudo $(brew --prefix e2fsprogs)/sbin/mkfs.ext4 -L "NAME_OF_DRIVE" -O ^metadata_c
 
 installation is essentially just copying the scripts to the device & making them executable. you can do this manually, or use one of the automated steps below. you also probably want to disable [Google Play Protect](https://developers.google.com/android/play-protect) scanning in the Play Store menu.
 
-### from internet via pixel terminal (more convenient, doesn't require a separate computer, but a little sus)
-1. start a terminal application and navigate to the directory where you want to install the scripts
-1. run the following command:
+### from github via pixel terminal
 
-```sh -c "$(curl -fSs https://raw.githubusercontent.com/master-hax/pixel-backup-gang/install/install.sh)"```
+```sh
+git clone https://github.com/Paqwtv/pixel-backup-gang.git
+cd pixel-backup-gang
+chmod +x ./ssd.sh ./scripts/*.sh
+```
 
-this one-liner runs a small installer script that downloads the latest release archive from github, unpacks it, then makes the contents executable. the current install script can be viewed [here](https://github.com/master-hax/pixel-backup-gang/blob/install/install.sh). piping strange scripts from the web into a root shell is generally not a good idea, but it is convenient. try not to make a habit of it. 😅
+this keeps the checkout layout with helper scripts under `scripts/`. `ssd.sh` supports this layout directly.
 
-### from local repository via adb (preferred, works offline, allows changes, more secure, but requires a separate computer running Linux)
-1. install the following software: `adb make shellcheck tar` (requires a separate computer running Linux or Windows Subsystem for Linux)
+### from local repository via adb (preferred, works offline, allows changes, more secure, but requires a separate computer)
+1. install the following software on your computer: `adb make shellcheck tar`
 1. clone this repository (at the desired tag or commit)
 1. run `make mobile-install` from the repository root. this installs the scripts to `/data/local/tmp` on the connected android device by default.
    * if your pixel has Termux installed, you can install the scripts to the Termux home directory with `make mobile-install DEVICE_INSTALL_DIRECTORY=/data/data/com.termux/files/home`
@@ -96,18 +98,22 @@ this is the preferred installation method for development as it doesn't require 
       * run `adb shell`
       * allow root access to the shell process in Magisk when prompted
 1. run `cd` to navigate to the installation directory e.g. `cd ./pixel-backup-gang` or `cd /data/data/com.termux/files/home/pixel-backup-gang` or `cd /data/local/tmp/pixel-backup-gang`
-1. for the one-command SSD workflow below, `./ssd.sh` enters the global mount namespace automatically. for manual helper usage, run `./start_global_shell.sh` to enter the global mount namespace
+1. for the one-command SSD workflow below, `./ssd.sh` enters the global mount namespace automatically. for manual helper usage, run `./start_global_shell.sh` in a release install or `./scripts/start_global_shell.sh` in a git checkout to enter the global mount namespace
     * the Magisk "force the global mount namespace" doesn't work - maybe it only works for magisk modules?
 
 ### one-command ext4 SSD workflow
 
 `ssd.sh` is a safer wrapper for regular ext4 SSD usage. it mounts only the filesystem UUID stored in `config/drive.uuid`, so it will not fall back to the first ext4 block device it finds.
 
+the repository ships with a placeholder example at `config/drive.uuid.example`. create `config/drive.uuid` with your own SSD filesystem UUID before mounting.
+
 first, connect the ext4 SSD and find its filesystem UUID:
 
 ```sh
-./show_devices.sh
+./scripts/show_devices.sh
 ```
+
+if you installed a release archive with flattened helper scripts, use `./show_devices.sh` instead.
 
 then save exactly one UUID into the config file:
 
@@ -146,13 +152,13 @@ the wrapper is intentionally conservative:
 manual helper usage:
 
 1. find the block device that you want to mount. it is usually found at `/dev/block/sdg1` but changes when devices are connected and disconnected e.g. it might show up as `/dev/block/sdh1` when reconnected. run `ls -alh /dev/block/` to see what is in there.
-   * if you don't know the filesystem UUID, you can use `./show_devices.sh`. this is just a convenience script, you don't need to run this.
-   * if you know the filesystem UUID, you can use `./find_device.sh`. this is just a convenience script, you don't need to run this.
-1. run `./mount_ext4.sh <BLOCK_DEVICE>` e.g. `./mount_ext4.sh /dev/block/sdg1`
+   * if you don't know the filesystem UUID, you can use `./scripts/show_devices.sh`. in a release install, use `./show_devices.sh`.
+   * if you know the filesystem UUID, you can use `./scripts/find_device.sh`. in a release install, use `./find_device.sh`.
+1. run `./scripts/mount_ext4.sh <BLOCK_DEVICE>` e.g. `./scripts/mount_ext4.sh /dev/block/sdg1`. in a release install, use `./mount_ext4.sh`.
 > [!CAUTION]
 > the `mount_ext4.sh` script currently disables [selinux](https://en.wikipedia.org/wiki/Security-Enhanced_Linux) by running `setenforce 0`. you must not have any untrusted apps installed on your device. do not visit untrusted websites. to re-enable selinux, you can reboot your device, or run `setenforce 1` with root permissions.
 >
-> want this fixed? see https://github.com/master-hax/pixel-backup-gang/issues/13 https://github.com/master-hax/pixel-backup-gang/blob/b25a5575fba3897cce126c15ed99245b1335f4c3/scripts/mount_ext4.sh#L41 
+> want this fixed? see https://github.com/Paqwtv/pixel-backup-gang/issues/13 and [mount_ext4.sh](scripts/mount_ext4.sh)
 
 #### FAT32 drives (when you only have files < 4gb and/or don't want to disable selinux and/or are a Windows only user unwilling to install a tool like [Ext4Fsd](https://github.com/bobranten/Ext4Fsd.git) and/or are transferring directly from some kind of capture device)
 1. connect the FAT32 formatted external drive to the pixel. it should be working normally as removable storage i.e. readable & writable by apps with permission.
@@ -163,20 +169,20 @@ manual helper usage:
 
 > [!NOTE]  
 > Google Photos will not instantly pick up the new media. It scans the filesystem to update their library when it wants to.
-> However, we send a media scan broadcast when the drive is mounted ([ext4](https://github.com/master-hax/pixel-backup-gang/blob/87a0fcc2d4481a54e5c8750bfbf2be8fcee0f50d/scripts/mount_ext4.sh#L52-L54),[VFAT](https://github.com/master-hax/pixel-backup-gang/blob/87a0fcc2d4481a54e5c8750bfbf2be8fcee0f50d/scripts/remount_vfat.sh#L60-L63))
+> However, we send a media scan broadcast when the drive is mounted ([ext4](scripts/mount_ext4.sh), [VFAT](scripts/remount_vfat.sh))
 > this is reported to be reliable to get photos to do a scan, however you may need to force close then re-open Google Photos
 
 ### unmounting
 
 1. make sure nothing important is reading from or writing to the drive
 2. for regular usage, run `./ssd.sh unmount`
-3. for manual helper usage from the global mount namespace, run `./unmount.sh`
+3. for manual helper usage from the global mount namespace, run `./scripts/unmount.sh`. in a release install, use `./unmount.sh`.
 
 **everything located under `/the_binding` in the internal storage should now be gone. you can disconnect the drive if you're sure all pending writes have been flushed.**
 
 ## notes
 * currently, the ext4 mounting script disables selinux security controls entirely, which is quite unsafe - do not have any kind of untrusted apps installed on your device while using this. selinux remains disabled until the next boot, or you can run the command `setenforce 1` to re-enable it earlier. don't forget that the software on the pixel is severely out of date and there are a lot of serious known vulnerabilities. try to keep device radios off (especially bluetooth and NFC) to reduce the attack surface.
 * this scripts in this repo should not make any changes to a pixel that persist past a reboot (besides the scripts themselves existing wherever you saved them)
-* my recommendation for regular usage is to find your drive's filesystem UUID using `./show_devices.sh`, store it in `config/drive.uuid`, and use `./ssd.sh mount` instead of manually choosing a `/dev/block/sdX` path
+* my recommendation for regular usage is to find your drive's filesystem UUID using `./scripts/show_devices.sh` (or `./show_devices.sh` in a release install), store it in `config/drive.uuid`, and use `./ssd.sh mount` instead of manually choosing a `/dev/block/sdX` path
 * list of shell utilities available per android version: https://android.googlesource.com/platform/system/core/+/refs/heads/main/shell_and_utilities/#android-10-api-level-29_quince-tart
 * excellent reference: https://android.stackexchange.com/questions/214288/how-to-stop-apps-writing-to-android-folder-on-the-sd-card/257401

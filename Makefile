@@ -11,8 +11,10 @@ HOST_ADB_COMMAND ?= adb
 
 # the directory on the pixel where the release tarball will be pushed
 DEVICE_TEMP_DIRECTORY := /data/local/tmp
+RELEASE_BUILD_DIRECTORY := .release/pixel-backup-gang
 
 ALL_SCRIPTS := \
+ssd.sh \
 scripts/run_as_termux.sh \
 scripts/mount_ext4.sh \
 scripts/remount_vfat.sh \
@@ -23,19 +25,30 @@ scripts/enable_tcp_debugging.sh \
 scripts/disable_tcp_debugging.sh \
 scripts/start_global_shell.sh \
 
+CONFIG_FILES := \
+config/drive.uuid.example \
+
+TEST_SCRIPTS := \
+tests/ssd_sh_test.sh \
+
 .PHONY: release
 release: shellcheck pixel-backup-gang-$(PBG_VERSION).tar.gz
 
 .PHONY: shellcheck
-shellcheck: $(ALL_SCRIPTS)
+shellcheck: $(ALL_SCRIPTS) $(TEST_SCRIPTS)
 	shellcheck --shell=sh --severity=style --check-sourced $^
 
-pixel-backup-gang-$(PBG_VERSION).tar.gz: $(ALL_SCRIPTS)
-	tar --owner=0 --group=0 -czvf $@ --transform='s,^scripts/,pixel-backup-gang/,' $^
+pixel-backup-gang-$(PBG_VERSION).tar.gz: $(ALL_SCRIPTS) $(CONFIG_FILES)
+	rm -rf .release
+	mkdir -p $(RELEASE_BUILD_DIRECTORY)/config
+	cp $(ALL_SCRIPTS) $(RELEASE_BUILD_DIRECTORY)/
+	cp $(CONFIG_FILES) $(RELEASE_BUILD_DIRECTORY)/config/
+	tar -czvf $@ -C .release pixel-backup-gang
 
 .PHONY: clean
 clean:
 	rm -f pixel-backup-gang-*.tar.gz
+	rm -rf .release
 
 # utility to install to the device connected over adb
 .PHONY: mobile-install

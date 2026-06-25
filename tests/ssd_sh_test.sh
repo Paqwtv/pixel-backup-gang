@@ -84,7 +84,7 @@ make_app() {
   mkdir -p "$app_dir/scripts" "$app_dir/config"
   cp "$repo_root/ssd.sh" "$app_dir/ssd.sh"
   chmod +x "$app_dir/ssd.sh"
-  printf '%s\n' 'b100411d-8397-45fa-a4c6-0464359cb972' >"$app_dir/config/drive.uuid"
+  printf '%s\n' '11111111-2222-3333-4444-555555555555' >"$app_dir/config/drive.uuid"
 
   cat >"$app_dir/scripts/find_device.sh" <<'EOF'
 #!/bin/sh
@@ -195,7 +195,7 @@ run_fail invalid_uuid_file env \
 assert_contains 'UUID file contains invalid characters:' "$tmp_root/invalid_uuid_file.err" "invalid UUID should be explicit"
 
 multi_uuid_file="$tmp_root/multi.uuid"
-printf '%s\n' 'b100411d-8397-45fa-a4c6-0464359cb972' 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' >"$multi_uuid_file"
+printf '%s\n' '11111111-2222-3333-4444-555555555555' 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' >"$multi_uuid_file"
 run_fail multi_uuid_file env \
   PBG_ASSUME_ROOT=1 \
   PBG_ASSUME_GLOBAL_NAMESPACE=1 \
