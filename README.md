@@ -91,19 +91,60 @@ this is the preferred installation method for development as it doesn't require 
 1. start a shell on the device & navigate to the installation directory
     * from the device
       * launch [Terminal](https://android.googlesource.com/platform/packages/apps/Terminal/), [Termux](https://github.com/termux/termux-app), [JuiceSSH](https://play.google.com/store/apps/details?id=com.sonelli.juicessh), or some other terminal app
-      * run `su` then allow sudo access to your terminal app in Magisk
+      * allow root access to your terminal app in Magisk when prompted
     * from a PC
       * run `adb shell`
-      * run `su` then allow sudo access to the shell process in Magisk
+      * allow root access to the shell process in Magisk when prompted
 1. run `cd` to navigate to the installation directory e.g. `cd ./pixel-backup-gang` or `cd /data/data/com.termux/files/home/pixel-backup-gang` or `cd /data/local/tmp/pixel-backup-gang`
-1. run `./start_global_shell.sh` to enter the global mount namespace
+1. for the one-command SSD workflow below, `./ssd.sh` enters the global mount namespace automatically. for manual helper usage, run `./start_global_shell.sh` to enter the global mount namespace
     * the Magisk "force the global mount namespace" doesn't work - maybe it only works for magisk modules?
+
+### one-command ext4 SSD workflow
+
+`ssd.sh` is a safer wrapper for regular ext4 SSD usage. it mounts only the filesystem UUID stored in `config/drive.uuid`, so it will not fall back to the first ext4 block device it finds.
+
+first, connect the ext4 SSD and find its filesystem UUID:
+
+```sh
+./show_devices.sh
+```
+
+then save exactly one UUID into the config file:
+
+```sh
+mkdir -p ./config
+printf '%s\n' 'YOUR-SSD-FILESYSTEM-UUID' > ./config/drive.uuid
+```
+
+after that, regular usage is:
+
+```sh
+./ssd.sh status
+./ssd.sh mount
+./ssd.sh unmount
+```
+
+you do not need to run `su` or `./start_global_shell.sh` manually for this workflow. `ssd.sh` will request root through `su` when needed, then re-run itself inside the global mount namespace with `nsenter -t 1 -m`.
+
+the wrapper is intentionally conservative:
+
+* the UUID file must exist, be non-empty, and contain exactly one UUID
+* if the UUID matches zero devices, mounting fails
+* if the UUID matches more than one device, mounting fails
+* if `/mnt/my_drive` is already mounted from the configured SSD, `mount` exits successfully without mounting again
+* if `/mnt/my_drive` or `/mnt/runtime/write/emulated/0/the_binding` is busy with another source, mounting fails
+* `mount` and `unmount` use an atomic lock so parallel runs do not race each other
+* `unmount` is safe to run when nothing is mounted
 
 ### mounting
 
 #### ext4 drives (i prefer this because i have files larger than 4gb & ext4 is just [better than FAT32](https://en.wikipedia.org/wiki/Comparison_of_file_systems))
 1. connect the ext4 formatted external drive to the pixel. you should get an os notification that says the drive is not supported. clear or ignore this notification.
    * this notification directs you to format the drive in FAT32 - don't do that
+1. for regular usage, prefer the one-command workflow above: `./ssd.sh mount`
+
+manual helper usage:
+
 1. find the block device that you want to mount. it is usually found at `/dev/block/sdg1` but changes when devices are connected and disconnected e.g. it might show up as `/dev/block/sdh1` when reconnected. run `ls -alh /dev/block/` to see what is in there.
    * if you don't know the filesystem UUID, you can use `./show_devices.sh`. this is just a convenience script, you don't need to run this.
    * if you know the filesystem UUID, you can use `./find_device.sh`. this is just a convenience script, you don't need to run this.
@@ -128,13 +169,14 @@ this is the preferred installation method for development as it doesn't require 
 ### unmounting
 
 1. make sure nothing important is reading from or writing to the drive
-2. run `./unmount.sh`
+2. for regular usage, run `./ssd.sh unmount`
+3. for manual helper usage from the global mount namespace, run `./unmount.sh`
 
 **everything located under `/the_binding` in the internal storage should now be gone. you can disconnect the drive if you're sure all pending writes have been flushed.**
 
 ## notes
 * currently, the ext4 mounting script disables selinux security controls entirely, which is quite unsafe - do not have any kind of untrusted apps installed on your device while using this. selinux remains disabled until the next boot, or you can run the command `setenforce 1` to re-enable it earlier. don't forget that the software on the pixel is severely out of date and there are a lot of serious known vulnerabilities. try to keep device radios off (especially bluetooth and NFC) to reduce the attack surface.
 * this scripts in this repo should not make any changes to a pixel that persist past a reboot (besides the scripts themselves existing wherever you saved them)
-* my recommendation for regular usage is to find your drive's filesystem UUID using `./show_devices.sh` and store it. you can then use this UUID in a script to always re-mount that same drive without having to figure out what the block device path is at e.g. something like `./mount_ext4.sh $(./find_device.sh ./my_drive_id.txt)`
+* my recommendation for regular usage is to find your drive's filesystem UUID using `./show_devices.sh`, store it in `config/drive.uuid`, and use `./ssd.sh mount` instead of manually choosing a `/dev/block/sdX` path
 * list of shell utilities available per android version: https://android.googlesource.com/platform/system/core/+/refs/heads/main/shell_and_utilities/#android-10-api-level-29_quince-tart
 * excellent reference: https://android.stackexchange.com/questions/214288/how-to-stop-apps-writing-to-android-folder-on-the-sd-card/257401
